@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Daily Spin — Song of the Day</title>
+<style>
+  :root{
+    --amber-1:#f6b84a;
+    --amber-2:#d98a2b;
+    --clay:#8a4a26;
+    --ember:#c23a2e;
+    --wine:#5c1620;
+    --ink:#120b09;
+    --cream:#f9efe0;
+    --cream-dim:#e7d3ad;
+    --card-glass:rgba(28,18,12,0.55);
+    --card-border:rgba(249,239,224,0.14);
+    --font-display:'Bebas Neue','Oswald',sans-serif;
+    --font-body:'Manrope','Inter',sans-serif;
+  }
+
+  @font-face{
+    font-family:'Bebas Neue';
+    src:local('Bebas Neue');
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:var(--font-body);
+    color:var(--cream);
+    overflow-x:hidden;
+    display:flex;
+    justify-content:center;
+  }
+
+  .stage{
+    position:relative;
+    width:100%;
+    max-width:520px;
+    min-height:100vh;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---------- background ---------- */
+  .bg{
+    position:fixed;
+    inset:0;
+    z-index:-3;
+    background:
+      radial-gradient(120% 60% at 50% 0%, var(--amber-1) 0%, var(--amber-2) 38%, var(--clay) 62%, var(--ink) 100%);
+  }
+  .bg::before, .bg::after{
+    content:"";
+    position:fixed;
+    border-radius:50%;
+    filter:blur(70px);
+    z-index:-2;
+  }
+  .bg::before{
+    width:70vw; height:70vw;
+    right:-15vw; bottom:-10vh;
+    background:radial-gradient(circle, var(--ember) 0%, var(--wine) 55%, transparent 75%);
+    opacity:.85;
+  }
+  .bg::after{
+    width:60vw; height:60vw;
+    left:-20vw; bottom:-25vh;
+    background:radial-gradient(circle, var(--ink) 0%, transparent 70%);
+    opacity:.9;
+  }
+  .grain{
+    position:fixed; inset:0; z-index:-1;
+    opacity:.05; mix-blend-mode:overlay; pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- overlay: scratch to reveal ---------- */
+  #overlay{
+    position:fixed; inset:0; z-index:20;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:22px;
+    padding:32px;
+    text-align:center;
+    background:rgba(10,6,4,0.35);
+    backdrop-filter:blur(2px);
+    transition:opacity .6s ease, visibility .6s ease;
+  }
+  #overlay.hidden{ opacity:0; visibility:hidden; pointer-events:none; }
+
+  .overlay-eyebrow{
+    font-size:12px;
+    letter-spacing:.28em;
+    text-transform:uppercase;
+    color:var(--cream-dim);
+    opacity:.85;
+  }
+  .overlay-date{
+    font-family:var(--font-display);
+    font-size:15px;
+    letter-spacing:.12em;
+    color:var(--cream);
+    opacity:.9;
+  }
+
+  .disc-btn{
+    position:relative;
+    width:190px; height:190px;
+    border-radius:50%;
+    border:none;
+    cursor:pointer;
+    background:
+      repeating-radial-gradient(circle at center, #1a1210 0px, #1a1210 3px, #241a16 4px, #241a16 6px),
+      radial-gradient(circle at 35% 30%, #3a2620, #14100d 70%);
+    box-shadow:0 18px 40px rgba(0,0,0,.55), inset 0 0 0 6px rgba(249,239,224,0.05);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .35s ease;
+  }
+  .disc-btn:active{ transform:scale(.96); }
+  .disc-btn .hole{
+    width:56px; height:56px; border-radius:50%;
+    background:linear-gradient(135deg,var(--amber-1),var(--ember));
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display);
+    font-size:11px;
+    letter-spacing:.08em;
+    color:var(--ink);
+    text-align:center;
+    line-height:1.1;
+    padding:4px;
+    box-shadow:0 0 0 3px rgba(0,0,0,.4) inset;
+  }
+  .disc-btn.spin{ animation:spinReveal .9s cubic-bezier(.2,.7,.3,1) forwards; }
+  @keyframes spinReveal{
+    0%{ transform:rotate(0) scale(1); }
+    60%{ transform:rotate(620deg) scale(1.08); }
+    100%{ transform:rotate(760deg) scale(0); opacity:0; }
+  }
+
+  .overlay-hint{
+    font-size:13px;
+    color:var(--cream-dim);
+    max-width:240px;
+    line-height:1.5;
+  }
+
+  /* ---------- app shell ---------- */
+  .app{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    padding:44px 20px 28px;
+    opacity:0;
+    transform:translateY(10px);
+    transition:opacity .7s ease, transform .7s ease;
+  }
+  .app.show{ opacity:1; transform:translateY(0); }
+
+  .wordmark{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:6px;
+  }
+  .wordmark .vinyl-mark{
+    width:22px; height:22px; border-radius:50%;
+    background:repeating-radial-gradient(circle at center,#3a2620 0,#3a2620 1.5px,transparent 2px,transparent 3.5px), radial-gradient(circle at 35% 30%,#5a3c30,#1c1512 70%);
+    position:relative;
+    flex-shrink:0;
+  }
+  .wordmark .vinyl-mark::after{
+    content:"";
+    position:absolute; inset:38%;
+    border-radius:50%;
+    background:var(--amber-1);
+  }
+  .wordmark span{
+    font-family:var(--font-display);
+    letter-spacing:.22em;
+    font-size:15px;
+    color:var(--cream-dim);
+    text-transform:uppercase;
+  }
+  .tagline{
+    text-align:center;
+    font-size:12px;
+    color:var(--cream-dim);
+    opacity:.75;
+    margin-bottom:34px;
+  }
+
+  /* ---------- carousel ---------- */
+  .carousel{
+    position:relative;
+    height:290px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-bottom:26px;
+  }
+  .card{
+    position:absolute;
+    width:180px; height:180px;
+    border-radius:18px;
+    padding:10px;
+    background:var(--card-glass);
+    border:1px solid var(--card-border);
+    backdrop-filter:blur(6px);
+    box-shadow:0 20px 40px rgba(0,0,0,.45);
+    transition:transform .55s cubic-bezier(.22,.8,.3,1), opacity .55s ease, filter .55s ease;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+  }
+  .card .art{
+    flex:1;
+    border-radius:12px;
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(135deg,#2a1e18,#14100d);
+  }
+  .card .art img{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .card .art::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(10,6,4,.55) 100%);
+    pointer-events:none;
+  }
+  .card .meta{ display:none; }
+  .card .badge{
+    position:absolute; top:8px; left:8px;
+    z-index:2;
+    font-size:9px; letter-spacing:.08em; text-transform:uppercase;
+    background:rgba(10,6,4,.55);
+    padding:3px 7px;
+    border-radius:20px;
+    color:var(--cream-dim);
+  }
+
+  .card.center{
+    width:216px; height:216px;
+    z-index:5;
+    transform:translateX(0) scale(1);
+  }
+  .card.center .meta{
+    display:block;
+    text-align:center;
+    padding-top:8px;
+  }
+  .card.center .meta .title{
+    font-family:var(--font-display);
+    font-size:19px;
+    letter-spacing:.02em;
+    color:var(--cream);
+    line-height:1.1;
+  }
+  .card.center .meta .artist{
+    font-size:11.5px;
+    color:var(--cream-dim);
+    margin-top:2px;
+  }
+
+  .card.pos-1{ transform:translateX(-118px) scale(.86) rotate(-4deg); z-index:4; opacity:.92; filter:brightness(.85); }
+  .card.pos--1{ transform:translateX(118px) scale(.86) rotate(4deg); z-index:4; opacity:.92; filter:brightness(.85); }
+  .card.pos-2{ transform:translateX(-190px) scale(.7) rotate(-7deg); z-index:3; opacity:.55; filter:brightness(.65); }
+  .card.pos--2{ transform:translateX(190px) scale(.7) rotate(7deg); z-index:3; opacity:.55; filter:brightness(.65); }
+  .card.pos-hide{ transform:translateX(0) scale(.4); opacity:0; z-index:1; pointer-events:none; }
+
+  /* ---------- player bar ---------- */
+  .player{
+    margin-top:auto;
+    background:rgba(20,13,10,0.55);
+    border:1px solid var(--card-border);
+    backdrop-filter:blur(10px);
+    border-radius:40px;
+    padding:12px 16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    box-shadow:0 16px 34px rgba(0,0,0,.4);
+    position:relative;
+    overflow:hidden;
+  }
+  .player .progress-track{
+    position:absolute;
+    left:14px; right:14px; bottom:6px;
+    height:3px;
+    border-radius:3px;
+    background:rgba(249,239,224,0.15);
+    cursor:pointer;
+  }
+  .player .progress-fill{
+    height:100%;
+    width:0%;
+    border-radius:3px;
+    background:linear-gradient(90deg,var(--amber-1),var(--ember));
+  }
+
+  .icon-btn{
+    background:none; border:none; color:var(--cream);
+    cursor:pointer;
+    width:30px; height:30px;
+    display:flex; align-items:center; justify-content:center;
+    opacity:.85;
+    flex-shrink:0;
+    transition:opacity .2s ease, transform .15s ease;
+  }
+  .icon-btn:hover{ opacity:1; }
+  .icon-btn:active{ transform:scale(.9); }
+  .icon-btn svg{ width:18px; height:18px; fill:currentColor; }
+
+  .play-btn{
+    width:34px; height:34px;
+    background:var(--cream);
+    color:var(--ink);
+    border-radius:50%;
+    opacity:1;
+  }
+  .play-btn svg{ width:15px; height:15px; }
+
+  .track-info{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:1;
+    min-width:0;
+    padding:0 2px;
+  }
+  .track-info .mini-art{
+    width:32px; height:32px;
+    border-radius:8px;
+    flex-shrink:0;
+    overflow:hidden;
+    position:relative;
+    background:linear-gradient(135deg,#2a1e18,#14100d);
+  }
+  .track-info .mini-art img{
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .track-info .txt{ min-width:0; }
+  .track-info .txt .t-title{
+    font-size:12.5px; font-weight:700;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .track-info .txt .t-artist{
+    font-size:10.5px; color:var(--cream-dim);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .vol-wrap{ position:relative; display:flex; align-items:center; }
+  .vol-pop{
+    position:absolute;
+    bottom:38px; left:50%;
+    transform:translateX(-50%) scaleY(0);
+    transform-origin:bottom;
+    background:rgba(20,13,10,0.85);
+    border:1px solid var(--card-border);
+    border-radius:12px;
+    padding:12px 8px;
+    transition:transform .2s ease;
+  }
+  .vol-wrap.open .vol-pop{ transform:translateX(-50%) scaleY(1); }
+  .vol-pop input[type=range]{
+    writing-mode:vertical-lr;
+    direction:rtl;
+    width:4px; height:70px;
+    accent-color:var(--amber-1);
+  }
+
+  footer{
+    text-align:center;
+    font-size:10.5px;
+    color:var(--cream-dim);
+    opacity:.6;
+    margin-top:16px;
+    letter-spacing:.03em;
+  }
+  footer .re-spin{
+    display:block;
+    margin:0 auto 10px;
+    background:none;
+    border:1px solid var(--card-border);
+    color:var(--cream-dim);
+    font-family:var(--font-body);
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:8px 16px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:background .2s ease, color .2s ease;
+  }
+  footer .re-spin:hover{ background:rgba(249,239,224,0.08); color:var(--cream); }
+
+  @media (max-width:380px){
+    .card{ width:150px; height:150px; }
+    .card.center{ width:186px; height:186px; }
+    .card.pos-1{ transform:translateX(-98px) scale(.86) rotate(-4deg); }
+    .card.pos--1{ transform:translateX(98px) scale(.86) rotate(4deg); }
+    .card.pos-2{ transform:translateX(-155px) scale(.7) rotate(-7deg); }
+    .card.pos--2{ transform:translateX(155px) scale(.7) rotate(7deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="grain"></div>
+
+<div class="stage">
+
+  <!-- reveal overlay -->
+  <div id="overlay">
+    <div class="overlay-eyebrow">Daily Spin</div>
+    <div class="overlay-date" id="todayDate"></div>
+    <button class="disc-btn" id="revealBtn" aria-label="Reveal today's song">
+      <span class="hole">TAP<br>TO<br>SPIN</span>
+    </button>
+    <div class="overlay-hint">One record, once a day. Give it a spin and see what lands.</div>
+  </div>
+
+  <!-- main app -->
+  <div class="app" id="app">
+    <div class="wordmark"><span class="vinyl-mark"></span><span>Daily Spin</span></div>
+    <div class="tagline">Today's pick, queued up and ready</div>
+
+    <div class="carousel" id="carousel"></div>
+
+    <div class="player" id="player">
+      <div class="progress-track" id="progressTrack"><div class="progress-fill" id="progressFill"></div></div>
+
+      <button class="icon-btn" id="prevBtn" aria-label="Previous">
+        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM20 18L9 12l11-6z"/></svg>
+      </button>
+      <button class="icon-btn play-btn" id="playBtn" aria-label="Play or pause">
+        <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="icon-btn" id="nextBtn" aria-label="Next">
+        <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM4 18l11-6L4 6z"/></svg>
+      </button>
+
+      <div class="track-info">
+        <div class="mini-art" id="miniArt"></div>
+        <div class="txt">
+          <div class="t-title" id="miniTitle">—</div>
+          <div class="t-artist" id="miniArtist">—</div>
+        </div>
+      </div>
+
+      <button class="icon-btn" id="shuffleBtn" aria-label="Spin a new song">
+        <svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4v-3h-4.59L9 11.41 7.59 10 11 6.59 14.41 3H10V0zM3 6h5.59L20 17.41V21h-3v-2.59L5.59 8H3z"/></svg>
+      </button>
+
+      <div class="vol-wrap" id="volWrap">
+        <button class="icon-btn" id="volBtn" aria-label="Volume">
+          <svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.48 4.48 0 0 0 16.5 12z"/></svg>
+        </button>
+        <div class="vol-pop"><input type="range" id="volSlider" min="0" max="1" step="0.01" value="0.75"></div>
+      </div>
+    </div>
+
+    <footer>
+      <button class="re-spin" id="reSpinBtn">↻ New spin</button>
+    </footer>
+  </div>
+
+</div>
+
+<audio id="audio" preload="metadata"></audio>
+
+<script>
+(function(){
+
+  // Each song gets a stable, unique photo (seeded so it never changes between loads).
+  const songs = [
+    { title:"Enjoy The Silence", artist:"Depeche Mode", genre:"Sinti pop",
+      img:"Depeche.jpg",
+      src:"Depeche Mode - Enjoy The Silence.mp3" },
+    { title:"Fever", artist:"xaviorthemachine, Dev1IHawk", genre:"Electro",
+      img:"fever.jpg",
+      src:"Fever (Instrumental).mp3" },
+    { title:"Dancin", artist:"Aaron Smith", genre:"House",
+      img:"dancin.jpg",
+      src:"Dancin.mp3" },
+    { title:"Everyone Talks", artist:"Neon Trees", genre:"Pop rock",
+      img:"everyoneTalks.jpg",
+      src:"Neon Trees - Everybody Talks.mp3" },
+    { title:"505", artist:"Arctic Monkeys", genre:"Indie rock",
+      img:"505.jpg",
+      src:"505_-_Arctic_Monkeys.mp3" },
+    { title:"Take My Mind", artist:"WizTheMc", genre:"Pop music",
+      img:"takemyMind.jpg",
+      src:"WizTheMc_-_Take_My_Mind__Official_Video_.mp3" },
+    { title:"Тает Лед", artist:"Грибы",
+      img:"ice.jpg",
+      src:"Ice.mp3" },
+    { title:"Кладбище самолетов", artist:"Валентин Стрыкало",
+      img:"plane.jpg",
+      src:"plane.mp3" },
+    { title:"Field Trip", artist:"Playboi Carti, Don Toliver и Kodak Black",
+      img:"fieldTrip.jpg",
+      src:"_-_FIELD_TRIP_79449470.mp3" },
+    { title:"Hate Being Sober", artist:"Chief Keef",
+      img:"hateBeingSober.jpg",
+      src:"Chief_Keef_-_Hate_Being_Sober_63176217.mp3" },
+    { title:"Nobody", artist:"Toxi$, Aarne, Big Baby Tape",
+      img:"nobody.jpg",
+      src:"Aarne_Toxi_Big_Baby_Tape_NOBODY.mp3" },
+    { title:"Let It Happen", artist:"Tame Impala",
+      img:"letItHappen.jpg",
+      src:"Tame_Impala_Let_It_Happen.mp3" },
+    { title:"Pharsyde", artist:"A$AP Rocky, Joe Fox",genre: "Hip-hop, R&B",
+      img:"Pharsyde.png",
+      src:"pharsyde.mp3" },
+    { title:"Innerbloom (Radio)", artist:"Rüfüs Du Sol", genre: "Electro, Santi-pop",
+      img:"innerbloom.jpg",
+      src:"Innerbloom.mp3" },
+    { title:"Beauty and a Beat", artist:"Justin Bieber, Nicki Minaj, TheWideboys", genre:"Pop-rock",
+      img:"beauty.jpg",
+      src:"Justin_Bieber_Nicki_Minaj_The_Wideboys_Beauty_And_A_Beat.mp3" },
+  ];
+
+  let currentIndex = 0;
+  let isPlaying = false;
+
+  const carousel = document.getElementById('carousel');
+  const audio = document.getElementById('audio');
+  const overlay = document.getElementById('overlay');
+  const app = document.getElementById('app');
+  const revealBtn = document.getElementById('revealBtn');
+  const playBtn = document.getElementById('playBtn');
+  const playIcon = document.getElementById('playIcon');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const shuffleBtn = document.getElementById('shuffleBtn');
+  const reSpinBtn = document.getElementById('reSpinBtn');
+  const miniArt = document.getElementById('miniArt');
+  const miniTitle = document.getElementById('miniTitle');
+  const miniArtist = document.getElementById('miniArtist');
+  const progressTrack = document.getElementById('progressTrack');
+  const progressFill = document.getElementById('progressFill');
+  const volWrap = document.getElementById('volWrap');
+  const volBtn = document.getElementById('volBtn');
+  const volSlider = document.getElementById('volSlider');
+  const todayDate = document.getElementById('todayDate');
+
+  todayDate.textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+
+  function buildCarousel(){
+    carousel.innerHTML = '';
+    const offsets = [-2,-1,0,1,2];
+    offsets.forEach(off => {
+      const idx = (currentIndex + off + songs.length) % songs.length;
+      const song = songs[idx];
+      const card = document.createElement('div');
+      let posClass = 'center';
+      if(off === -1) posClass = 'pos-1';
+      else if(off === 1) posClass = 'pos--1';
+      else if(off === -2) posClass = 'pos-2';
+      else if(off === 2) posClass = 'pos--2';
+      card.className = `card ${off===0 ? 'center' : posClass}`;
+      card.dataset.index = idx;
+      card.innerHTML = `
+        <div class="art">
+          <img src="${song.img}" alt="${song.title} artwork" loading="lazy">
+          <span class="badge">${song.genre}</span>
+        </div>
+        <div class="meta">
+          <div class="title">${song.title}</div>
+          <div class="artist">${song.artist}</div>
+        </div>`;
+      card.addEventListener('click', () => {
+        if(idx === currentIndex) return;
+        currentIndex = idx;
+        loadTrack(true);
+      });
+      carousel.appendChild(card);
+    });
+  }
+
+  function loadTrack(autoplay){
+    const song = songs[currentIndex];
+    buildCarousel();
+    miniArt.innerHTML = `<img src="${song.img}" alt="${song.title} artwork">`;
+    miniTitle.textContent = song.title;
+    miniArtist.textContent = song.artist;
+    audio.src = song.src;
+    progressFill.style.width = '0%';
+    if(autoplay){
+      audio.play().then(()=>{ isPlaying = true; updatePlayIcon(); })
+                  .catch(()=>{ isPlaying = false; updatePlayIcon(); });
+    }
+  }
+
+  function updatePlayIcon(){
+    playIcon.innerHTML = isPlaying
+      ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'
+      : '<path d="M8 5v14l11-7z"/>';
+  }
+
+  function pickRandom(){
+    let idx = Math.floor(Math.random() * songs.length);
+    if(songs.length > 1 && idx === currentIndex){
+      idx = (idx + 1) % songs.length;
+    }
+    currentIndex = idx;
+  }
+
+  // reveal flow
+  revealBtn.addEventListener('click', () => {
+    revealBtn.classList.add('spin');
+    revealBtn.disabled = true;
+    pickRandom();
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      app.classList.add('show');
+      loadTrack(true);
+    }, 620);
+  });
+
+  // re-spin (new random pick any time)
+  function respin(){
+    pickRandom();
+    loadTrack(true);
+  }
+  reSpinBtn.addEventListener('click', respin);
+  shuffleBtn.addEventListener('click', respin);
+
+  // transport
+  playBtn.addEventListener('click', () => {
+    if(!audio.src) return;
+    if(isPlaying){ audio.pause(); isPlaying = false; }
+    else { audio.play().catch(()=>{}); isPlaying = true; }
+    updatePlayIcon();
+  });
+
+  prevBtn.addEventListener('click', () => {
+    currentIndex = (currentIndex - 1 + songs.length) % songs.length;
+    loadTrack(isPlaying || true);
+  });
+  nextBtn.addEventListener('click', () => {
+    currentIndex = (currentIndex + 1) % songs.length;
+    loadTrack(isPlaying || true);
+  });
+
+  audio.addEventListener('play', () => { isPlaying = true; updatePlayIcon(); });
+  audio.addEventListener('pause', () => { isPlaying = false; updatePlayIcon(); });
+  audio.addEventListener('ended', () => { nextBtn.click(); });
+  audio.addEventListener('timeupdate', () => {
+    if(audio.duration){
+      progressFill.style.width = (audio.currentTime / audio.duration * 100) + '%';
+    }
+  });
+
+  progressTrack.addEventListener('click', (e) => {
+    if(!audio.duration) return;
+    const rect = progressTrack.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = ratio * audio.duration;
+  });
+
+  volSlider.addEventListener('input', () => { audio.volume = volSlider.value; });
+  audio.volume = volSlider.value;
+
+  volBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    volWrap.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if(!volWrap.contains(e.target)) volWrap.classList.remove('open');
+  });
+
+})();
+</script>
+
+</body>
+</html>
